@@ -9,7 +9,7 @@ import {
 
 dotenv.config();
 
-const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID;
+const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID ? process.env.ALLOWED_CHAT_ID.replace(/['"]/g, '') : undefined;
 
 function isChatAllowed(ctx) {
   if (!ALLOWED_CHAT_ID) {
@@ -122,7 +122,7 @@ export function initBot(token) {
     let msg = `📊 **KASDIENIS CRYPTOSNIPERIS #DS ŠVIESLENTĖ**\n\n`;
     msg += `Čia galite stebėti pilną dalyvių statistiką, lyderių lenteles, spėjimų tikslumą bei istoriją:\n`;
     msg += `🔗 [Atidaryti Švieslentę](${dashboardUrl})\n\n`;
-    msg += `_Jei puslapis nepasiekiamas, įsitikinkite, kad serveris veikia ir DASHBOARD_URL kintamasis yra sukonfigūruotas teisingai._`;
+    msg += `_Jei puslapis nepasiekiamas, įsitikinkite, kad serveris veikia ir DASHBOARD\_URL kintamasis yra sukonfigūruotas teisingai._`;
 
     await ctx.reply(msg, { parse_mode: 'Markdown' });
   });

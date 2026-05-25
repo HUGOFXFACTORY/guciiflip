@@ -10,8 +10,7 @@ import {
   resetLeaderboard 
 } from './database.js';
 
-// Configuration
-const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID;
+const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID ? process.env.ALLOWED_CHAT_ID.replace(/['"]/g, '') : undefined;
 
 /**
  * Main evaluation routine for a specific target date
