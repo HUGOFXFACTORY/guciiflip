@@ -24,6 +24,56 @@ function isChatAllowed(ctx) {
 }
 
 /**
+ * Standard prediction prompt generator used by both /predict command and #ds hashtag.
+ * @param {import('telegraf').Context} ctx 
+ */
+async function triggerPredictionPrompt(ctx) {
+  try {
+    console.log(`[Bot] Prediction prompt triggered in chat "${ctx.chat.title || 'Private'}" (ID: ${ctx.chat.id}) from ${ctx.from.username || ctx.from.first_name}`);
+    
+    if (!isChatAllowed(ctx)) {
+      console.warn(`[Bot] Ignored hashtag/command from unauthorized chat ID: ${ctx.chat.id}`);
+      return;
+    }
+
+    // Upsert/register user
+    upsertUser(ctx.from.id, ctx.from.username, ctx.from.first_name);
+
+    // Compute target date (tomorrow in UTC)
+    const tomorrow = new Date();
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const targetDate = tomorrow.toISOString().split('T')[0];
+
+    // Check if user already predicted
+    const existing = getUserPrediction(ctx.from.id, targetDate);
+    let promptText = `🟥↘️ **KASDIENIS CRYPTOSNIPERIS #DS** 🟩↗️\n\n`;
+    promptText += `Spėk kitos dienos (**${targetDate}**) Bitcoin (BTC) uždarymo žvakę SPOT rinkoje!\n`;
+    promptText += `Balsavimas baigiasi: **${targetDate} 00:00 UTC**.\n\n`;
+    
+    if (existing) {
+      promptText += `🔄 Tavo dabartinis spėjimas: ${existing.prediction === 'UP' ? '🟩 **ŽALIA (UP)** ↗️' : '🟥 **RAUDONA (DOWN)** ↘️'}\n`;
+      promptText += `_Norėdamas pakeisti, spausk žemiau esančius mygtukus:_`;
+    } else {
+      promptText += `Pasirink žvakės kryptį spausdamas mygtukus žemiau:`;
+    }
+
+    const inlineKeyboard = Markup.inlineKeyboard([
+      Markup.button.callback('🟩 ŽALIA (UP) ↗️', `predict_UP_${targetDate}`),
+      Markup.button.callback('🟥 RAUDONA (DOWN) ↘️', `predict_DOWN_${targetDate}`)
+    ]);
+
+    await ctx.reply(promptText, {
+      parse_mode: 'Markdown',
+      reply_to_message_id: ctx.message ? ctx.message.message_id : undefined,
+      ...inlineKeyboard
+    });
+
+  } catch (error) {
+    console.error('[Bot] Error handling prediction prompt:', error);
+  }
+}
+
+/**
  * Initializes and registers handlers for the Telegram Bot
  * @param {string} token 
  * @returns {Telegraf}
@@ -31,56 +81,60 @@ function isChatAllowed(ctx) {
 export function initBot(token) {
   const bot = new Telegraf(token);
 
+  // Set Telegram command menu
+  bot.telegram.setMyCommands([
+    { command: 'start', description: 'Pradėti ir gauti pagalbą' },
+    { command: 'help', description: 'Žaidimo taisyklės ir komandos' },
+    { command: 'predict', description: 'Atlikti prognozę kitai dienai (#ds)' },
+    { command: 'leaderboard', description: 'Rodyti lyderių lentelę' },
+    { command: 'dashboard', description: 'Atidaryti rezultatų švieslentę' },
+    { command: 'chatid', description: 'Gauti šio pokalbio ID' }
+  ]).catch(err => console.error('[Bot] Nepavyko nustatyti komandų meniu:', err));
+
+  // /start and /help command handler
+  bot.command(['start', 'help'], async (ctx) => {
+    if (!isChatAllowed(ctx)) return;
+
+    let welcomeMsg = `🤖 **Sveiki atvykę į KASDIENĮ CRYPTOSNIPERĮ (#DS)!** 🎯\n\n`;
+    welcomeMsg += `Šis botas leidžia prognozuoti Bitcoin (BTC) dienos uždarymo žvakės kryptį (Žalia 🟩 / Raudona 🟥) ir varžytis su kitais pokalbio dalyviais!\n\n`;
+    welcomeMsg += `🚀 **Žaidimo taisyklės:**\n`;
+    welcomeMsg += `1️⃣ Kiekvieną dieną spėkite kitos dienos žvakės uždarymo kryptį.\n`;
+    welcomeMsg += `2️⃣ Spėjimai priimami iki tos dienos **00:00 UTC**.\n`;
+    welcomeMsg += `3️⃣ Teisingas spėjimas suteikia **+1 tašką** savaitės, mėnesio ir visų laikų lyderių lentelėse.\n`;
+    welcomeMsg += `4️⃣ Pirmadieniais anuliuojami savaitės taškai ir skelbiamas savaitės nugalėtojas.\n`;
+    welcomeMsg += `5️⃣ Kiekvieno mėnesio 1-ąją dieną anuliuojami mėnesio taškai.\n\n`;
+    welcomeMsg += `🎯 **Galimos komandos:**\n`;
+    welcomeMsg += `• Parašykite pokalbyje **#ds** arba `/predict` – atlikti prognozę.\n`;
+    welcomeMsg += `• `/leaderboard` – peržiūrėti lyderių lentelę tiesiai pokalbyje.\n`;
+    welcomeMsg += `• `/dashboard` – gauti nuorodą į vizualią rezultatų švieslentę (dashboard).\n`;
+    welcomeMsg += `• `/chatid` – parodyti šio pokalbio ID.\n\n`;
+    welcomeMsg += `Sėkmingo snaiperinimo! 🎯💪`;
+
+    await ctx.reply(welcomeMsg, { parse_mode: 'Markdown' });
+  });
+
+  // /predict command handler
+  bot.command('predict', triggerPredictionPrompt);
+
+  // Hashtag #ds trigger
+  bot.hears(/#ds/i, triggerPredictionPrompt);
+
+  // /dashboard command handler
+  bot.command('dashboard', async (ctx) => {
+    if (!isChatAllowed(ctx)) return;
+
+    const dashboardUrl = process.env.DASHBOARD_URL || 'http://localhost:3000';
+    let msg = `📊 **KASDIENIS CRYPTOSNIPERIS #DS ŠVIESLENTĖ**\n\n`;
+    msg += `Čia galite stebėti pilną dalyvių statistiką, lyderių lenteles, spėjimų tikslumą bei istoriją:\n`;
+    msg += `🔗 [Atidaryti Švieslentę](${dashboardUrl})\n\n`;
+    msg += `_Jei puslapis nepasiekiamas, įsitikinkite, kad serveris veikia ir DASHBOARD_URL kintamasis yra sukonfigūruotas teisingai._`;
+
+    await ctx.reply(msg, { parse_mode: 'Markdown' });
+  });
+
   // Helper command to find Group Chat ID
   bot.command('chatid', (ctx) => {
     ctx.reply(`Šio pokalbio ID yra: \`${ctx.chat.id}\``, { parse_mode: 'Markdown' });
-  });
-
-  // Hashtag #ds trigger
-  bot.hears(/#ds/i, async (ctx) => {
-    try {
-      console.log(`[Bot] Message with #ds in chat "${ctx.chat.title || 'Private'}" (ID: ${ctx.chat.id}) from ${ctx.from.username || ctx.from.first_name}`);
-      
-      if (!isChatAllowed(ctx)) {
-        console.warn(`[Bot] Ignored hashtag from unauthorized chat ID: ${ctx.chat.id}`);
-        return;
-      }
-
-      // Upsert/register user
-      upsertUser(ctx.from.id, ctx.from.username, ctx.from.first_name);
-
-      // Compute target date (tomorrow in UTC)
-      const tomorrow = new Date();
-      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-      const targetDate = tomorrow.toISOString().split('T')[0];
-
-      // Check if user already predicted
-      const existing = getUserPrediction(ctx.from.id, targetDate);
-      let promptText = `🟥↘️ **KASDIENIS CRYPTOSNIPERIS #DS** 🟩↗️\n\n`;
-      promptText += `Spėk kitos dienos (**${targetDate}**) Bitcoin (BTC) uždarymo žvakę SPOT rinkoje!\n`;
-      promptText += `Balsavimas baigiasi: **${targetDate} 00:00 UTC**.\n\n`;
-      
-      if (existing) {
-        promptText += `🔄 Tavo dabartinis spėjimas: ${existing.prediction === 'UP' ? '🟩 **ŽALIA (UP)** ↗️' : '🟥 **RAUDONA (DOWN)** ↘️'}\n`;
-        promptText += `_Norėdamas pakeisti, spausk žemiau esančius mygtukus:_`;
-      } else {
-        promptText += `Pasirink žvakės kryptį spausdamas mygtukus žemiau:`;
-      }
-
-      const inlineKeyboard = Markup.inlineKeyboard([
-        Markup.button.callback('🟩 ŽALIA (UP) ↗️', `predict_UP_${targetDate}`),
-        Markup.button.callback('🟥 RAUDONA (DOWN) ↘️', `predict_DOWN_${targetDate}`)
-      ]);
-
-      await ctx.reply(promptText, {
-        parse_mode: 'Markdown',
-        reply_to_message_id: ctx.message.message_id,
-        ...inlineKeyboard
-      });
-
-    } catch (error) {
-      console.error('[Bot] Error handling #ds message:', error);
-    }
   });
 
   // Callback query handler for predictions
@@ -122,7 +176,7 @@ export function initBot(token) {
       
       const nowString = new Date().toISOString().replace('T', ' ').substring(0, 19);
       confirmationText += `_Pateikta: ${nowString} UTC_\n`;
-      confirmationText += `_(Jei norite pakeisti prognozę, parašykite #ds pokalbyje dar kartą)_`;
+      confirmationText += `_(Jei norite pakeisti prognozę, parašykite #ds arba /predict iš naujo)_`;
 
       await ctx.editMessageText(confirmationText, {
         parse_mode: 'Markdown'
@@ -181,6 +235,10 @@ export function initBot(token) {
       } else {
         leaderboardMsg += `• _Nėra duomenų_\n`;
       }
+
+      // Add link to full web dashboard at the bottom
+      const dashboardUrl = process.env.DASHBOARD_URL || 'http://localhost:3000';
+      leaderboardMsg += `\n📊 **Pilna dalyvių švieslentė ir istorija:**\n🔗 ${dashboardUrl}\n`;
 
       await ctx.reply(leaderboardMsg, { parse_mode: 'Markdown' });
 

@@ -185,3 +185,100 @@ export function resetLeaderboard(type) {
   const stmt = db.prepare(query);
   return stmt.run();
 }
+
+/**
+ * Retrieves a detailed leaderboard of all users with additional stats (total/correct predictions, accuracy)
+ */
+export function getDetailedLeaderboard() {
+  const query = `
+    SELECT 
+      u.user_id,
+      u.username,
+      u.first_name,
+      u.score_weekly,
+      u.score_monthly,
+      u.score_all_time,
+      (SELECT COUNT(*) FROM predictions p WHERE p.user_id = u.user_id) AS total_predictions,
+      (SELECT COUNT(*) FROM predictions p 
+       JOIN candles c ON p.target_date = c.candle_date 
+       WHERE p.user_id = u.user_id AND c.evaluated = 1 AND (
+         (p.prediction = 'UP' AND c.color = 'GREEN') OR 
+         (p.prediction = 'DOWN' AND c.color = 'RED')
+       )
+      ) AS correct_predictions
+    FROM users u
+    ORDER BY u.score_all_time DESC, u.score_monthly DESC, u.score_weekly DESC
+  `;
+  const stmt = db.prepare(query);
+  return stmt.all();
+}
+
+/**
+ * Compiles dashboard and system-wide statistics
+ */
+export function getDashboardStats() {
+  const totalUsers = db.prepare('SELECT COUNT(*) AS count FROM users').get().count;
+  const totalPredictions = db.prepare('SELECT COUNT(*) AS count FROM predictions').get().count;
+  const totalCandles = db.prepare('SELECT COUNT(*) AS count FROM candles WHERE evaluated = 1').get().count;
+  
+  // Total evaluated predictions
+  const totalEvaluatedPredictions = db.prepare(`
+    SELECT COUNT(*) AS count 
+    FROM predictions p 
+    JOIN candles c ON p.target_date = c.candle_date 
+    WHERE c.evaluated = 1
+  `).get().count;
+
+  // Total correct predictions
+  const totalCorrectPredictions = db.prepare(`
+    SELECT COUNT(*) AS count 
+    FROM predictions p 
+    JOIN candles c ON p.target_date = c.candle_date 
+    WHERE c.evaluated = 1 AND (
+      (p.prediction = 'UP' AND c.color = 'GREEN') OR 
+      (p.prediction = 'DOWN' AND c.color = 'RED')
+    )
+  `).get().count;
+
+  // Active predictions for tomorrow in UTC
+  const tomorrow = new Date();
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  
+  const tomorrowVotes = db.prepare('SELECT COUNT(*) AS count FROM predictions WHERE target_date = ?').get(tomorrowStr).count;
+
+  return {
+    totalUsers,
+    totalPredictions,
+    totalCandles,
+    totalEvaluatedPredictions,
+    totalCorrectPredictions,
+    tomorrowVotes,
+    tomorrowDate: tomorrowStr
+  };
+}
+
+/**
+ * Retrieves the historical daily candles alongside group success rates
+ * @param {number} limit
+ */
+export function getRecentCandlesWithStats(limit = 30) {
+  const query = `
+    SELECT 
+      c.candle_date,
+      c.open_price,
+      c.close_price,
+      c.color,
+      c.evaluated,
+      (SELECT COUNT(*) FROM predictions p WHERE p.target_date = c.candle_date) AS total_predictions,
+      (SELECT COUNT(*) FROM predictions p WHERE p.target_date = c.candle_date AND (
+        (p.prediction = 'UP' AND c.color = 'GREEN') OR 
+        (p.prediction = 'DOWN' AND c.color = 'RED')
+      )) AS correct_predictions
+    FROM candles c
+    ORDER BY c.candle_date DESC
+    LIMIT ?
+  `;
+  const stmt = db.prepare(query);
+  return stmt.all(limit);
+}

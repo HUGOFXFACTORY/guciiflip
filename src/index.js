@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { dbInit } from './database.js';
 import { initBot } from './bot.js';
 import { initScheduler } from './scheduler.js';
+import { initServer } from './server.js';
 
 // Load environment variables
 dotenv.config();
@@ -28,7 +29,10 @@ try {
   // 3. Initialize background Scheduler
   initScheduler(bot);
 
-  // 4. Start polling
+  // 4. Initialize Express Web Server for the Dashboard
+  initServer();
+
+  // 5. Start polling
   bot.launch()
     .then(() => {
       console.log('\n==================================================');
