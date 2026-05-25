@@ -9,7 +9,7 @@ import {
 
 dotenv.config();
 
-const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID ? process.env.ALLOWED_CHAT_ID.replace(/['"/g, '') : undefined;
+const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID ? process.env.ALLOWED_CHAT_ID.trim() : undefined;
 
 function isChatAllowed(ctx) {
   if (!ALLOWED_CHAT_ID) {
