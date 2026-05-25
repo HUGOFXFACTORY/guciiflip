@@ -2,9 +2,9 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm rebuild better-sqlite3",
+    "buildCommand": "npm_config_python=$(which python3) npm rebuild better-sqlite3",
     "nixpacksPlan": {
-      "aptPkgs": ["python3", "make", "g++", "gcc"]
+      "nixPkgs": ["python3", "gnumake", "gcc", "nodePackages.node-gyp"]
     }
   },
   "deploy": {
