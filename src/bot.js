@@ -11,16 +11,11 @@ dotenv.config();
 
 const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID;
 
-/**
- * Checks if the message originates from the allowed group chat
- * @param {import('telegraf').Context} ctx 
- * @returns {boolean}
- */
 function isChatAllowed(ctx) {
   if (!ALLOWED_CHAT_ID) {
     return true; // If not configured, allow any chat (useful for initial setup)
   }
-  return String(ctx.chat.id) === String(ALLOWED_CHAT_ID);
+  return ctx.chat.type === 'private' || String(ctx.chat.id) === String(ALLOWED_CHAT_ID);
 }
 
 /**
