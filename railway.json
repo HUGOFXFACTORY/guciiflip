@@ -1,14 +1,10 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "npm_config_python=$(which python3) npm rebuild better-sqlite3",
-    "nixpacksPlan": {
-      "nixPkgs": ["python3", "gnumake", "gcc", "nodePackages.node-gyp"]
-    }
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "npm start",
     "numReplicas": 1,
     "sleepApplication": false
   }
