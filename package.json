@@ -1,0 +1,18 @@
+{
+  "name": "daily-crypto-sniper",
+  "version": "1.0.0",
+  "description": "Telegram bot for predicting daily Bitcoin candle close prices using Bybit API and SQLite",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "better-sqlite3": "^11.0.0",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3",
+    "telegraf": "^4.16.3"
+  }
+}
