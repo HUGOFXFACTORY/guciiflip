@@ -1,10 +1,15 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "buildCommand": "rm -rf node_modules && npm ci --include=optional",
+    "nixpacksPlan": {
+      "aptPkgs": ["python3", "make", "g++"]
+    }
   },
   "deploy": {
     "startCommand": "npm start",
-    "postDeploy": "npm start"
+    "numReplicas": 1,
+    "sleepApplication": false
   }
 }
