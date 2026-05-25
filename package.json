@@ -5,6 +5,7 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
+    "build": "echo 'No build step needed'",
     "start": "node src/index.js",
     "dev": "node src/index.js",
     "build": "npm ci"
